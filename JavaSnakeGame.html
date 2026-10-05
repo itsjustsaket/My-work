@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Java Snake Game – T7999</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --bg: #0a0f0a;
+    --panel: #0d1a0d;
+    --border: #1a3a1a;
+    --green: #00ff41;
+    --green-dim: #00992a;
+    --green-dark: #003310;
+    --yellow: #ffe066;
+    --red: #ff4444;
+    --white: #c8ffc8;
+    --grid: 20;
+    --cell: 24px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,65,0.015) 2px,
+      rgba(0,255,65,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  h1 {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: clamp(1rem, 3vw, 1.5rem);
+    letter-spacing: 0.3em;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green), 0 0 40px var(--green-dim);
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 0.65rem;
+    color: var(--green-dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 18px;
+  }
+
+  .layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    border: 1px solid var(--green-dim);
+    box-shadow: 0 0 30px rgba(0,255,65,0.15), inset 0 0 30px rgba(0,255,65,0.03);
+  }
+
+  canvas {
+    display: block;
+    background: var(--bg);
+  }
+
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,10,0,0.88);
+    gap: 14px;
+    transition: opacity 0.3s;
+  }
+
+  .overlay.hidden { opacity: 0; pointer-events: none; }
+
+  .overlay h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    color: var(--green);
+    text-shadow: 0 0 20px var(--green);
+    letter-spacing: 0.2em;
+  }
+
+  .overlay p { color: var(--white); font-size: 0.8rem; text-align: center; line-height: 1.8; }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    padding: 10px 28px;
+    cursor: pointer;
+    letter-spacing: 0.2em;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .btn:hover {
+    background: var(--green);
+    color: var(--bg);
+    box-shadow: 0 0 20px var(--green);
+  }
+
+  .sidebar {
+    width: 210px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    color: var(--green-dim);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  .stat { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .stat-label { font-size: 0.65rem; color: var(--green-dim); }
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    color: var(--green);
+    text-shadow: 0 0 8px var(--green);
+  }
+
+  .concept-list { list-style: none; }
+  .concept-list li {
+    font-size: 0.62rem;
+    color: var(--green-dim);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--green-dark);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color 0.3s;
+  }
+  .concept-list li.active { color: var(--green); }
+  .concept-list li::before { content: '▸'; font-size: 0.5rem; }
+  .concept-list li.active::before { content: '▶'; color: var(--yellow); }
+
+  .keys { display: flex; flex-wrap: wrap; gap: 5px; }
+  .key {
+    border: 1px solid var(--border);
+    padding: 4px 8px;
+    font-size: 0.6rem;
+    color: var(--white);
+    background: var(--green-dark);
+  }
+
+  .speedbar-wrap { margin-top: 4px; }
+  .speedbar {
+    height: 4px;
+    background: var(--green-dark);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .speedbar-fill {
+    height: 100%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    transition: width 0.3s;
+  }
+
+  #conceptFlash {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--green-dark);
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    padding: 8px 20px;
+    letter-spacing: 0.15em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 200;
+    text-shadow: 0 0 8px var(--green);
+    white-space: nowrap;
+  }
+  #conceptFlash.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<h1>JAVA SNAKE</h1>
+<p class="subtitle">T7999 · JAVA PROGRAMMING · OOP CONCEPTS DEMO</p>
+
+<div id="conceptFlash">CONCEPT UNLOCKED</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="panel">
+      <div class="panel-title">▸ STATS</div>
+      <div class="stat"><span class="stat-label">SCORE</span><span class="stat-val" id="scoreVal">0</span></div>
+      <div class="stat"><span class="stat-label">HIGH SCORE</span><span class="stat-val" id="hiVal">0</span></div>
+      <div class="stat"><span class="stat-label">LENGTH</span><span class="stat-val" id="lenVal">1</span></div>
+      <div class="stat"><span class="stat-label">LEVEL</span><span class="stat-val" id="lvlVal">1</span></div>
+      <div class="speedbar-wrap">
+        <span class="stat-label" style="font-size:0.6rem">SPEED</span>
+        <div class="speedbar"><div class="speedbar-fill" id="speedFill" style="width:10%"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">▸ OOP CONCEPTS ACTIVE</div>
+      <ul class="concept-list" id="conceptList">
+        <li id="c-class">Classes &amp; Objects</li>
+        <li id="c-inherit">Inheritance</li>
+        <li id="c-interface">Interfaces</li>
+        <li id="c-poly">Polymorphism</li>
+        <li id="c-encap">Encapsulation</li>
+        <li id="c-exception">Exception Handling</li>
+        <li id="c-thread">Multithreading</li>
+        <li id="c-gc">Garbage Collector</li>
+      </ul>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">▸ CONTROLS</div>
+      <div class="keys">
+        <span class="key">↑ W</span>
+        <span class="key">↓ S</span>
+        <span class="key">← A</span>
+        <span class="key">→ D</span>
+        <span class="key">P PAUSE</span>
+        <span class="key">R RESET</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="c" width="480" height="480"></canvas>
+    <div class="overlay" id="overlay">
+      <h2 id="overlayTitle">JAVA SNAKE</h2>
+      <p id="overlayMsg">
+        Every game mechanic maps to a Java concept.<br>
+        Eat food → classes grow · Colors → polymorphism<br>
+        Speed up → multithreading · Wall collision → exceptions
+      </p>
+      <button class="btn" id="startBtn">INITIALIZE GAME</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+ * ═══════════════════════════════════════════════════════════════
+ *  JAVA T7999 SNAKE GAME
+ *  Each JS section maps to a Java syllabus concept.
+ *  Comments show equivalent Java code structure.
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * JAVA CONCEPT 1: Classes & Objects
+ *   class Point { int x; int y; }
+ *   class Snake { ... }
+ *   class Food  { ... }
+ *   class Game  { ... }
+ */
+
+const GRID = 20;
+const CELL = 24;
+const W = GRID * CELL;
+const H = GRID * CELL;
+
+// ─── JAVA CONCEPT 2: Interface (Drawable)
+//   interface Drawable { void draw(Graphics g); }
+const Drawable = {
+  draw: null // must be overridden — like implementing an interface
+};
+
+// ─── JAVA CONCEPT 3: Base class Entity (like abstract class)
+//   abstract class Entity implements Drawable {
+//     protected int x, y;
+//     abstract void update();
+//   }
+class Entity {
+  constructor(x, y) {
+    this.x = x; // instance variables (encapsulated)
+    this.y = y;
+  }
+  update() { throw new Error("Must override update() — abstract method"); }
+  draw(ctx) { throw new Error("Must override draw() — implements Drawable"); }
+}
+
+// ─── JAVA CONCEPT 4: Inheritance  class Food extends Entity
+//   Single food item — base class
+class Food extends Entity {
+  constructor() {
+    super(0, 0); // super() constructor call
+    this.type = 'normal';
+    this.color = '#00ff41';
+    this.points = 10;
+    this.glow = '#00ff41';
+    this.symbol = '●';
+    this.respawn();
+  }
+  respawn() {
+    this.x = Math.floor(Math.random() * GRID);
+    this.y = Math.floor(Math.random() * GRID);
+  }
+  // Overriding draw() — method overriding (polymorphism)
+  draw(ctx) {
+    const px = this.x * CELL + CELL / 2;
+    const py = this.y * CELL + CELL / 2;
+    ctx.shadowColor = this.glow;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = this.color;
+    ctx.font = `${CELL - 4}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.symbol, px, py);
+    ctx.shadowBlur = 0;
+  }
+  update() {}
+}
+
+// ─── JAVA CONCEPT 5: Multilevel Inheritance
+//   class BonusFood extends Food { ... }
+class BonusFood extends Food {
+  constructor() {
+    super(); // calls Food() → which calls Entity()
+    this.type = 'bonus';
+    this.color = '#ffe066';
+    this.glow = '#ffe066';
+    this.points = 50;
+    this.symbol = '★';
+    this.lifetime = 150; // frames
+  }
+  update() {
+    this.lifetime--;
+    // Blink when about to expire
+    if (this.lifetime < 40) {
+      this.color = this.lifetime % 6 < 3 ? '#ffe066' : '#664400';
+    }
+  }
+}
+
+// ─── Poison food — hierarchical inheritance (same parent Food)
+class PoisonFood extends Food {
+  constructor() {
+    super();
+    this.type = 'poison';
+    this.color = '#ff4444';
+    this.glow = '#ff4444';
+    this.points = -20;
+    this.symbol = '✖';
+  }
+  update() {}
+}
+
+// ─── JAVA CONCEPT 6: Encapsulation — private fields via closures
+//   class Snake { private List<Point> body; private Direction dir; }
+class Snake extends Entity {
+  constructor() {
+    super(10, 10);
+    // Encapsulated state — getters/setters below
+    this._body = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    this._dir = { x: 1, y: 0 };
+    this._nextDir = { x: 1, y: 0 };
+    this._grew = false;
+    this._alive = true;
+  }
+
+  // Getter — like Java: public List<Point> getBody()
+  get body() { return this._body; }
+  get dir() { return this._dir; }
+  get alive() { return this._alive; }
+  get length() { return this._body.length; }
+
+  // Setter with validation — encapsulation
+  setDir(dx, dy) {
+    // Can't reverse direction (business logic inside class)
+    if (dx === -this._dir.x && dy === -this._dir.y) return;
+    this._nextDir = { x: dx, y: dy };
+  }
+
+  grow() { this._grew = true; }
+
+  // ─── JAVA CONCEPT 7: Exception Handling
+  //   try { move(); } catch (CollisionException e) { handleDeath(); }
+  update() {
+    try {
+      this._dir = this._nextDir;
+      const head = this._body[0];
+      const nx = head.x + this._dir.x;
+      const ny = head.y + this._dir.y;
+
+      // Wall collision — throw exception
+      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) {
+        throw new Error("WallCollisionException: Snake hit boundary");
+      }
+
+      // Self collision
+      for (let i = 1; i < this._body.length; i++) {
+        if (this._body[i].x === nx && this._body[i].y === ny) {
+          throw new Error("SelfCollisionException: Snake collided with body");
+        }
+      }
+
+      this._body.unshift({ x: nx, y: ny });
+      if (!this._grew) {
+        this._body.pop(); // GC collects old tail — like Java's garbage collector
+      }
+      this._grew = false;
+
+    } catch (e) {
+      // catch block — like Java's catch(CollisionException e)
+      this._alive = false;
+      flashConcept('Exception Handled! (' + e.message.split(':')[0] + ')');
+    }
+  }
+
+  draw(ctx) {
+    this._body.forEach((seg, i) => {
+      const px = seg.x * CELL;
+      const py = seg.y * CELL;
+      const pad = i === 0 ? 1 : 2;
+      const isHead = i === 0;
+
+      // Head glow
+      if (isHead) {
+        ctx.shadowColor = '#00ff41';
+        ctx.shadowBlur = 16;
+      } else {
+        ctx.shadowBlur = 0;
+      }
+
+      // Color gradient along body — polymorphic rendering
+      const ratio = i / this._body.length;
+      const g = Math.floor(255 * (1 - ratio * 0.6));
+      ctx.fillStyle = isHead ? '#00ff41' : `rgb(0,${g},${Math.floor(g * 0.25)})`;
+      ctx.fillRect(px + pad, py + pad, CELL - pad * 2, CELL - pad * 2);
+
+      // Head eyes
+      if (isHead) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000';
+        const ex = this._dir.x;
+        const ey = this._dir.y;
+        const cx2 = px + CELL / 2 + ex * 4;
+        const cy2 = py + CELL / 2 + ey * 4;
+        // Two eyes perpendicular to direction
+        const perpX = ey, perpY = ex;
+        ctx.beginPath();
+        ctx.arc(cx2 + perpX * 4, cy2 + perpY * 4, 2, 0, Math.PI * 2);
+        ctx.arc(cx2 - perpX * 4, cy2 - perpY * 4, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── JAVA CONCEPT 8: Main Game class (like public class Game)
+//   Aggregates all objects — composition
+class Game {
+  constructor(canvas) {
+    this.ctx = canvas.getContext('2d');
+    this.snake = null;
+    this.foods = [];
+    this.score = 0;
+    this.hiScore = 0;
+    this.level = 1;
+    this.frame = 0;
+    this.paused = false;
+    this.running = false;
+    this.speed = 8; // frames per tick — like thread sleep interval
+    this._loopId = null;
+    this.conceptsUnlocked = new Set(['c-class', 'c-encap']);
+    this.updateConceptUI();
+  }
+
+  // ─── JAVA CONCEPT 9: Multithreading — game loop simulates a Thread
+  //   class GameThread extends Thread { public void run() { gameLoop(); } }
+  start() {
+    this.snake = new Snake();
+    this.foods = [new Food()];
+    this.score = 0;
+    this.level = 1;
+    this.speed = 8;
+    this.frame = 0;
+    this.running = true;
+    this.paused = false;
+    this.conceptsUnlocked = new Set(['c-class', 'c-encap']);
+    this.updateConceptUI();
+    this._loopId = requestAnimationFrame(this._loop.bind(this));
+    flashConcept('Classes & Encapsulation Active');
+  }
+
+  stop() {
+    this.running = false;
+    if (this._loopId) cancelAnimationFrame(this._loopId);
+  }
+
+  // Game loop — like Thread.run() with Thread.sleep(speed)
+  _loop() {
+    if (!this.running) return;
+    this._loopId = requestAnimationFrame(this._loop.bind(this));
+    if (this.paused) { this._drawPause(); return; }
+
+    this.frame++;
+    if (this.frame % this.speed === 0) {
+      this._update();
+    }
+    this._draw();
+  }
+
+  _update() {
+    if (!this.snake.alive) {
+      this._gameOver();
+      return;
+    }
+
+    // Update all food objects — polymorphic update() calls
+    // In Java: for (Entity e : entities) { e.update(); } — polymorphism
+    this.foods.forEach(f => f.update());
+
+    // Remove expired bonus food — like GC removing unreferenced objects
+    const before = this.foods.length;
+    this.foods = this.foods.filter(f => !(f instanceof BonusFood && f.lifetime <= 0));
+    if (this.foods.length < before) {
+      flashConcept('Garbage Collector: expired object removed');
+      this.conceptsUnlocked.add('c-gc');
+      this.updateConceptUI();
+    }
+
+    // Ensure at least one normal food exists
+    if (!this.foods.some(f => f.type === 'normal')) {
+      this.foods.push(new Food());
+    }
+
+    this.snake.update();
+
+    if (!this.snake.alive) return;
+
+    // Check food collisions
+    const head = this.snake.body[0];
+    this.foods = this.foods.filter(food => {
+      if (food.x === head.x && food.y === head.y) {
+        this.score += food.points;
+        if (this.score < 0) this.score = 0;
+        this._onEat(food);
+        return false; // remove eaten food
+      }
+      return true;
+    });
+
+    // Level up every 100 points
+    const newLevel = Math.floor(this.score / 100) + 1;
+    if (newLevel > this.level) {
+      this.level = newLevel;
+      this.speed = Math.max(3, 8 - this.level); // thread speed increases
+      flashConcept(`Level ${this.level}: Thread speed increased!`);
+      this.conceptsUnlocked.add('c-thread');
+      this.updateConceptUI();
+    }
+
+    this._updateUI();
+  }
+
+  _onEat(food) {
+    if (food.points > 0) this.snake.grow();
+
+    if (food.type === 'normal') {
+      this.foods.push(new Food());
+      this.conceptsUnlocked.add('c-class');
+      this.conceptsUnlocked.add('c-inherit');
+      this.updateConceptUI();
+      // Occasionally spawn special food
+      if (Math.random() < 0.25) {
+        this.foods.push(new BonusFood());
+        flashConcept('Inheritance: BonusFood extends Food');
+        this.conceptsUnlocked.add('c-inherit');
+        this.conceptsUnlocked.add('c-poly');
+        this.updateConceptUI();
+      }
+      if (Math.random() < 0.15) {
+        const p = new PoisonFood();
+        p.respawn();
+        this.foods.push(p);
+        flashConcept('Polymorphism: PoisonFood.draw() override');
+        this.conceptsUnlocked.add('c-poly');
+        this.conceptsUnlocked.add('c-interface');
+        this.updateConceptUI();
+      }
+    } else if (food.type === 'bonus') {
+      flashConcept(`Interface: Drawable.draw() → ★ +50`);
+      this.conceptsUnlocked.add('c-interface');
+      this.updateConceptUI();
+    } else if (food.type === 'poison') {
+      flashConcept('Exception: score -= 20 (caught & handled)');
+      this.conceptsUnlocked.add('c-exception');
+      this.updateConceptUI();
+    }
+  }
+
+  _draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(0,255,65,0.04)';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= GRID; i++) {
+      ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(W, i * CELL); ctx.stroke();
+    }
+
+    // Polymorphic draw calls — like: for (Drawable d : drawables) d.draw(g);
+    this.foods.forEach(f => f.draw(ctx));
+    this.snake.draw(ctx);
+
+    // Score overlay
+    ctx.fillStyle = 'rgba(0,255,65,0.06)';
+    ctx.font = '10px Share Tech Mono';
+    ctx.fillText(`JAVA T7999`, 6, H - 6);
+  }
+
+  _drawPause() {
+    this._draw();
+    const ctx = this.ctx;
+    ctx.fillStyle = 'rgba(0,10,0,0.7)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = 'bold 14px Orbitron, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('THREAD SUSPENDED', W / 2, H / 2 - 10);
+    ctx.font = '11px Share Tech Mono';
+    ctx.fillStyle = '#00992a';
+    ctx.fillText('[ Thread.sleep() — press P to resume ]', W / 2, H / 2 + 14);
+    ctx.textAlign = 'left';
+  }
+
+  _gameOver() {
+    this.running = false;
+    if (this.score > this.hiScore) this.hiScore = this.score;
+    this._updateUI();
+    document.getElementById('overlayTitle').textContent = 'EXCEPTION CAUGHT';
+    document.getElementById('overlayMsg').innerHTML =
+      `<b style="color:#ff4444">CollisionException thrown!</b><br>` +
+      `Score: ${this.score} &nbsp;|&nbsp; Length: ${this.snake.length}<br><br>` +
+      `Concepts unlocked: ${this.conceptsUnlocked.size}/8<br>` +
+      `<span style="color:#666;font-size:0.7em">// finally { showScore(); restart(); }</span>`;
+    document.getElementById('startBtn').textContent = 'NEW INSTANCE';
+    document.getElementById('overlay').classList.remove('hidden');
+  }
+
+  _updateUI() {
+    document.getElementById('scoreVal').textContent = this.score;
+    document.getElementById('hiVal').textContent = this.hiScore;
+    document.getElementById('lenVal').textContent = this.snake.length;
+    document.getElementById('lvlVal').textContent = this.level;
+    const speedPct = Math.min(100, Math.round(((8 - this.speed) / 5) * 100 + 10));
+    document.getElementById('speedFill').style.width = speedPct + '%';
+  }
+
+  updateConceptUI() {
+    const all = ['c-class','c-inherit','c-interface','c-poly','c-encap','c-exception','c-thread','c-gc'];
+    all.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('active', this.conceptsUnlocked.has(id));
+    });
+  }
+}
+
+// ─── Bootstrap — like Java's public static void main(String[] args)
+const canvas = document.getElementById('c');
+const game = new Game(canvas);
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('overlay').classList.add('hidden');
+  game.stop();
+  game.start();
+});
+
+document.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  if (['arrowup','w'].includes(key))    { game.snake?.setDir(0, -1); e.preventDefault(); }
+  if (['arrowdown','s'].includes(key))  { game.snake?.setDir(0, 1);  e.preventDefault(); }
+  if (['arrowleft','a'].includes(key))  { game.snake?.setDir(-1, 0); e.preventDefault(); }
+  if (['arrowright','d'].includes(key)) { game.snake?.setDir(1, 0);  e.preventDefault(); }
+  if (key === 'p') { game.paused = !game.paused; }
+  if (key === 'r') {
+    game.stop();
+    document.getElementById('overlay').classList.remove('hidden');
+    document.getElementById('overlayTitle').textContent = 'JAVA SNAKE';
+    document.getElementById('overlayMsg').innerHTML =
+      'Every game mechanic maps to a Java concept.<br>Eat food → classes grow · Colors → polymorphism<br>Speed up → multithreading · Wall collision → exceptions';
+    document.getElementById('startBtn').textContent = 'INITIALIZE GAME';
+  }
+});
+
+// Touch support for mobile
+let touchStart = null;
+canvas.addEventListener('touchstart', e => { touchStart = e.touches[0]; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', e => {
+  if (!touchStart) return;
+  const dx = e.changedTouches[0].clientX - touchStart.clientX;
+  const dy = e.changedTouches[0].clientY - touchStart.clientY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    game.snake?.setDir(dx > 0 ? 1 : -1, 0);
+  } else {
+    game.snake?.setDir(0, dy > 0 ? 1 : -1);
+  }
+  touchStart = null;
+}, { passive: false });
+
+// ─── Concept flash notification
+let flashTimer;
+function flashConcept(msg) {
+  const el = document.getElementById('conceptFlash');
+  el.textContent = '▸ ' + msg;
+  el.classList.add('show');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
